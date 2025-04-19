@@ -1,0 +1,82 @@
+---
+- name: Deploy Flask App on EC2
+  hosts: flask_servers
+  become: yes
+  vars:
+    app_dir: /opt/flask-app
+    git_repo: "https://github.com/yourusername/flask-repo.git"  # Replace with your repo
+    git_branch: "main"
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        pkg: ["python3-pip", "git", "nginx", "python3-venv"]
+        update_cache: yes
+        state: present
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Clone Flask app
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ app_dir }}"
+        version: "{{ git_branch }}"
+        force: yes
+
+    - name: Create Python virtual environment
+      command: "python3 -m venv {{ app_dir }}/venv"
+      args:
+        creates: "{{ app_dir }}/venv"
+
+    - name: Install Python requirements
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
+
+    - name: Configure systemd service
+      template:
+        src: templates/flask.service
+        dest: /etc/systemd/system/flask.service
+      notify:
+        - restart flask
+
+    - name: Configure Nginx
+      template:
+        src: templates/nginx.conf
+        dest: /etc/nginx/sites-available/flask
+      notify:
+        - restart nginx
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/flask
+        dest: /etc/nginx/sites-enabled/flask
+        state: link
+      notify:
+        - restart nginx
+
+    - name: Enable and start services
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      with_items:
+        - flask
+        - nginx
+
+  handlers:
+    - name: restart flask
+      systemd:
+        name: flask
+        state: restarted
+        daemon_reload: yes
+
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
