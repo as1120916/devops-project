@@ -1,0 +1,43 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout Git') {
+            steps {
+                git branch: 'main', url: 'https://github.com/as1120916/devops-project.git'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Run Ansible') {
+            steps {
+                dir('ansible') {
+                    sh 'ansible-playbook -i inventory.ini playbook.yml'
+                }
+            }
+        }
+
+        stage('Test App') {
+            steps {
+                script {
+                    def PUBLIC_IP = sh(script: "cd terraform && terraform output -raw instance_public_ip", returnStdout: true).trim()
+                    sh "curl http://${PUBLIC_IP}:5000"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed!'
+        }
+    }
+}
