@@ -4,7 +4,7 @@
   become: yes
   vars:
     app_dir: /opt/flask-app
-    git_repo: "https://github.com/as1120916/devops-project.git"  # Replace with your repo
+    git_repo: "https://github.com/as1120916/devops-project.git" 
     git_branch: "main"
 
   tasks:
